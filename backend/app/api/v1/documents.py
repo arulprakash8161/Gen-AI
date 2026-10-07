@@ -2,9 +2,10 @@ from typing import Dict, List, Optional
 from fastapi import APIRouter, UploadFile, File, Form, status
 from pydantic import BaseModel, Field
 
-from backend.app.models.document import ProcessedDocument
+from backend.app.models.document import ProcessedDocument, DocumentChunk, ChunkingConfig
 from backend.app.services.document_parser.parser import parse_document
 from backend.app.services.document_parser.text_parser import parse_text
+from backend.app.services.chunking.text_chunker import chunk_document
 from backend.app.core.exceptions import AppException
 from backend.app.core.logging import get_logger
 
@@ -124,3 +125,33 @@ async def delete_document(doc_id: str) -> Dict[str, str]:
         )
     del _DOCUMENTS_STORE[doc_id]
     return {"status": "deleted", "doc_id": doc_id}
+
+
+@router.get(
+    "/{doc_id}/chunks",
+    response_model=List[DocumentChunk],
+    status_code=status.HTTP_200_OK,
+    summary="Get Document Chunks",
+    description="Chunks a previously ingested document into traceable chunks using configurable chunk_size and chunk_overlap.",
+)
+async def get_document_chunks(
+    doc_id: str,
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None,
+) -> List[DocumentChunk]:
+    if doc_id not in _DOCUMENTS_STORE:
+        raise AppException(
+            message=f"Document with ID '{doc_id}' was not found.",
+            status_code=404,
+            code="DOCUMENT_NOT_FOUND",
+        )
+
+    doc = _DOCUMENTS_STORE[doc_id]
+    config = None
+    if chunk_size is not None or chunk_overlap is not None:
+        config = ChunkingConfig(
+            chunk_size=chunk_size if chunk_size is not None else 600,
+            chunk_overlap=chunk_overlap if chunk_overlap is not None else 100,
+        )
+
+    return chunk_document(doc, config=config)

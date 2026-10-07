@@ -54,5 +54,9 @@ class Settings(BaseSettings):
     EMBEDDING_PROVIDER: str = "ollama"
     EMBEDDING_MODEL: str = "nomic-embed-text"
 
+    # Chunking Configuration
+    CHUNK_SIZE: int = 600
+    CHUNK_OVERLAP: int = 100
+
 
 settings = Settings()
