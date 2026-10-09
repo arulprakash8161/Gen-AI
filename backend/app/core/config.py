@@ -52,7 +52,7 @@ class Settings(BaseSettings):
     OLLAMA_TIMEOUT_SECONDS: int = 120
 
     # Embedding Configuration
-    EMBEDDING_PROVIDER: str = "ollama"
+    EMBEDDING_PROVIDER: str = "local"
     EMBEDDING_MODEL: str = "nomic-embed-text"
 
     # Chunking Configuration

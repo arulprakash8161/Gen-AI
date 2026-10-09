@@ -6,6 +6,11 @@ from backend.app.models.document import ProcessedDocument, DocumentChunk, Chunki
 from backend.app.services.document_parser.parser import parse_document
 from backend.app.services.document_parser.text_parser import parse_text
 from backend.app.services.chunking.text_chunker import chunk_document
+from backend.app.services.vector_store import (
+    index_document,
+    IndexingResult,
+    get_vector_store,
+)
 from backend.app.core.exceptions import AppException
 from backend.app.core.logging import get_logger
 
@@ -53,8 +58,18 @@ async def upload_document(
         )
 
     processed_doc = parse_document(file_bytes=content, filename=filename)
+    if processed_doc.text and processed_doc.text.strip():
+        await index_document(processed_doc)
+    else:
+        processed_doc.metadata["indexed"] = False
+        processed_doc.metadata["chunks_count"] = 0
+        processed_doc.metadata["indexing_note"] = "Skipped: document contains no extractable text"
+
     _DOCUMENTS_STORE[processed_doc.doc_id] = processed_doc
-    logger.info(f"Ingested document '{filename}' with ID '{processed_doc.doc_id}' ({processed_doc.character_count} chars)")
+    logger.info(
+        f"Ingested document '{filename}' with ID '{processed_doc.doc_id}' "
+        f"({processed_doc.character_count} chars, {processed_doc.metadata.get('chunks_count', 0)} chunks)"
+    )
     return processed_doc
 
 
@@ -63,12 +78,22 @@ async def upload_document(
     response_model=ProcessedDocument,
     status_code=status.HTTP_201_CREATED,
     summary="Ingest Raw Text",
-    description="Ingest plain text directly without a file upload.",
+    description="Ingest plain text directly, extracting, chunking, and indexing into vector store.",
 )
 async def ingest_raw_text(payload: RawTextInput) -> ProcessedDocument:
     processed_doc = parse_text(content=payload.text, filename=payload.title or "pasted_text.txt")
+    if processed_doc.text and processed_doc.text.strip():
+        await index_document(processed_doc)
+    else:
+        processed_doc.metadata["indexed"] = False
+        processed_doc.metadata["chunks_count"] = 0
+        processed_doc.metadata["indexing_note"] = "Skipped: document contains no extractable text"
+
     _DOCUMENTS_STORE[processed_doc.doc_id] = processed_doc
-    logger.info(f"Ingested raw text with ID '{processed_doc.doc_id}' ({processed_doc.character_count} chars)")
+    logger.info(
+        f"Ingested raw text with ID '{processed_doc.doc_id}' "
+        f"({processed_doc.character_count} chars, {processed_doc.metadata.get('chunks_count', 0)} chunks)"
+    )
     return processed_doc
 
 
@@ -114,7 +139,7 @@ async def get_document(doc_id: str) -> ProcessedDocument:
     "/{doc_id}",
     status_code=status.HTTP_200_OK,
     summary="Delete Document",
-    description="Removes an ingested document from memory.",
+    description="Removes an ingested document from memory and its vector embeddings from vector store.",
 )
 async def delete_document(doc_id: str) -> Dict[str, str]:
     if doc_id not in _DOCUMENTS_STORE:
@@ -124,7 +149,37 @@ async def delete_document(doc_id: str) -> Dict[str, str]:
             code="DOCUMENT_NOT_FOUND",
         )
     del _DOCUMENTS_STORE[doc_id]
+    vector_store = get_vector_store()
+    await vector_store.delete_by_doc_id(doc_id)
     return {"status": "deleted", "doc_id": doc_id}
+
+
+@router.post(
+    "/{doc_id}/index",
+    response_model=IndexingResult,
+    status_code=status.HTTP_200_OK,
+    summary="Index Document Chunks into Vector Store",
+    description="Explicitly indexes or re-indexes an ingested document into the persistent vector store.",
+)
+async def index_existing_document(
+    doc_id: str,
+    chunk_size: Optional[int] = None,
+    chunk_overlap: Optional[int] = None,
+) -> IndexingResult:
+    if doc_id not in _DOCUMENTS_STORE:
+        raise AppException(
+            message=f"Document with ID '{doc_id}' was not found.",
+            status_code=404,
+            code="DOCUMENT_NOT_FOUND",
+        )
+    doc = _DOCUMENTS_STORE[doc_id]
+    config = None
+    if chunk_size is not None or chunk_overlap is not None:
+        config = ChunkingConfig(
+            chunk_size=chunk_size if chunk_size is not None else 600,
+            chunk_overlap=chunk_overlap if chunk_overlap is not None else 100,
+        )
+    return await index_document(doc, chunking_config=config)
 
 
 @router.get(

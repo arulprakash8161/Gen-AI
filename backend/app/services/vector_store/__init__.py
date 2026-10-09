@@ -9,6 +9,10 @@ from backend.app.services.vector_store.sqlite_store import (
     calculate_cosine_similarity,
 )
 from backend.app.services.vector_store.factory import get_vector_store
+from backend.app.services.vector_store.indexing import (
+    index_document,
+    IndexingResult,
+)
 
 __all__ = [
     "BaseVectorStore",
@@ -18,4 +22,6 @@ __all__ = [
     "SQLiteVectorStore",
     "calculate_cosine_similarity",
     "get_vector_store",
+    "index_document",
+    "IndexingResult",
 ]
