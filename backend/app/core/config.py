@@ -47,6 +47,7 @@ class Settings(BaseSettings):
     VECTOR_DB_PATH: str = "data/vector_store.db"
 
     # Ollama LLM Configuration
+    LLM_PROVIDER: str = "local"  # "local" / "mock" or "ollama"
     OLLAMA_BASE_URL: str = "http://localhost:11434"
     OLLAMA_MODEL: str = "llama3.2"
     OLLAMA_TIMEOUT_SECONDS: int = 120
