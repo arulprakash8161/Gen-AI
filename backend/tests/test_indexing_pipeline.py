@@ -132,8 +132,7 @@ def test_api_upload_and_auto_indexing():
     # Verify indexed in default vector store
     vector_store = get_vector_store()
     import asyncio
-    loop = asyncio.get_event_loop()
-    chunks = loop.run_until_complete(vector_store.get_chunks_by_doc_id(doc_id))
+    chunks = asyncio.run(vector_store.get_chunks_by_doc_id(doc_id))
     assert len(chunks) == data["metadata"]["chunks_count"]
 
     # Test re-index endpoint
@@ -146,5 +145,5 @@ def test_api_upload_and_auto_indexing():
     # Delete document and verify vector store deletion
     del_res = client.delete(f"/api/v1/documents/{doc_id}")
     assert del_res.status_code == 200
-    chunks_after_del = loop.run_until_complete(vector_store.get_chunks_by_doc_id(doc_id))
+    chunks_after_del = asyncio.run(vector_store.get_chunks_by_doc_id(doc_id))
     assert len(chunks_after_del) == 0
