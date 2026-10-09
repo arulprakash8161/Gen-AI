@@ -44,6 +44,7 @@ class Settings(BaseSettings):
     DATA_DIR: str = "data"
     UPLOADS_DIR: str = "data/uploads"
     CHROMA_PERSIST_DIR: str = "data/chroma_db"
+    VECTOR_DB_PATH: str = "data/vector_store.db"
 
     # Ollama LLM Configuration
     OLLAMA_BASE_URL: str = "http://localhost:11434"
