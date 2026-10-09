@@ -46,12 +46,13 @@ venv.bak/
 *.swo
 
 # Data and Local Storage
-data/
-uploads/
-vector_store/
-chroma_db/
+/data/
+/uploads/
+/vector_store/
+/chroma_db/
 *.sqlite3
 *.db
+!backend/app/services/vector_store/
 
 # Node / Frontend
 frontend/node_modules/
